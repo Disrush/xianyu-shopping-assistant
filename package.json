@@ -1,0 +1,19 @@
+{
+  "name": "xianyu-assistant",
+  "version": "1.0.0",
+  "description": "闲鱼智能购物助手 - AI 驱动的二手商品自动搜索、筛选与询价工具",
+  "type": "module",
+  "scripts": {
+    "start": "node server.mjs",
+    "dev": "node --watch server.mjs"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "express": "^4.21.0",
+    "playwright": "^1.49.0",
+    "ws": "^8.18.0"
+  },
+  "license": "MIT"
+}

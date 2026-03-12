@@ -1,0 +1,26 @@
+# Dependencies
+node_modules/
+
+# Runtime data
+browser-data/
+data/config.json
+data/tasks.json
+
+# OS files
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+*.log
+npm-debug.log*
+
+# Environment
+.env
+.env.local

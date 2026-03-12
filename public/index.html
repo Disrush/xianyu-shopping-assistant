@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>闲鱼智能助手</title>
+  <link rel="stylesheet" href="style.css?v=8">
+</head>
+<body>
+  <div id="app">
+    <!-- Header -->
+    <header class="header">
+      <div class="header-left">
+        <h1>🐟 闲鱼智能助手</h1>
+        <span class="status-dot" id="ws-status"></span>
+      </div>
+      <div class="header-right">
+        <div class="model-selector">
+          <label class="model-label">🤖 模型</label>
+          <select id="model-select" onchange="switchModel(this.value)"></select>
+        </div>
+        <button class="btn" onclick="showSettingsModal()" id="settings-btn">⚙️ 设置</button>
+        <button class="btn btn-primary" onclick="showCreateModal()">+ 新建任务</button>
+      </div>
+    </header>
+
+    <!-- Config Warning Banner -->
+    <div class="config-banner" id="config-banner" style="display:none">
+      <span>⚠️ AI 尚未配置，请先点击「设置」配置 API 密钥和模型，否则无法使用</span>
+      <button class="btn btn-sm btn-primary" onclick="showSettingsModal()">去配置</button>
+    </div>
+
+    <div class="main-layout">
+      <!-- Sidebar: Task List -->
+      <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">任务列表</div>
+        <div id="task-list" class="task-list"></div>
+      </aside>
+
+      <!-- Main Content -->
+      <main class="content" id="main-content">
+        <div class="empty-state" id="empty-state">
+          <div class="empty-icon">🎯</div>
+          <p>点击「新建任务」开始自动化购物</p>
+          <p class="subtle">支持多关键词搜索、AI智能筛选、自动询价</p>
+        </div>
+
+        <!-- Task Detail (hidden initially) -->
+        <div id="task-detail" class="task-detail" style="display:none">
+          <!-- Pipeline -->
+          <div class="pipeline" id="pipeline"></div>
+
+          <!-- Tab Bar -->
+          <div class="tab-bar">
+            <button class="tab active" data-tab="products" onclick="switchTab('products')">商品列表</button>
+            <button class="tab" data-tab="chats" onclick="switchTab('chats')">聊天会话</button>
+            <button class="tab" data-tab="logs" onclick="switchTab('logs')">运行日志</button>
+          </div>
+
+          <!-- Products Tab -->
+          <div class="tab-content active" id="tab-products">
+            <div class="product-stats" id="product-stats"></div>
+            <div class="product-table-wrap">
+              <table class="product-table" id="product-table">
+                <thead>
+                  <tr>
+                    <th>图片</th><th>标题</th><th>价格</th><th>地区</th><th>阶段</th>
+                  </tr>
+                </thead>
+                <tbody id="product-tbody"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Chats Tab -->
+          <div class="tab-content" id="tab-chats">
+            <div id="chat-sessions"></div>
+          </div>
+
+          <!-- Logs Tab -->
+          <div class="tab-content" id="tab-logs">
+            <div class="log-panel" id="log-panel"></div>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <!-- Settings Modal -->
+  <div class="modal-overlay" id="settings-modal-overlay" onclick="hideSettingsModal()">
+    <div class="modal settings-modal" onclick="event.stopPropagation()">
+      <div class="modal-header">
+        <h2>⚙️ API 设置</h2>
+        <button class="modal-close" onclick="hideSettingsModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p class="settings-desc">配置 AI 大模型 API，支持所有 OpenAI 兼容接口。配置信息仅保存在本地服务器。</p>
+
+        <div class="form-group">
+          <label>API 服务商</label>
+          <select id="cfg-provider" onchange="onProviderChange(this.value)">
+            <option value="">-- 请选择 --</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label>API Base URL</label>
+          <input id="cfg-base-url" type="text" placeholder="例如：https://api.openai.com/v1">
+          <div class="hint">OpenAI 兼容格式，通常以 /v1 结尾</div>
+        </div>
+
+        <div class="form-group">
+          <label>API Key</label>
+          <div class="input-with-toggle">
+            <input id="cfg-api-key" type="password" placeholder="sk-...">
+            <button class="btn btn-sm toggle-pwd" onclick="toggleApiKeyVisibility()" type="button">👁</button>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>模型</label>
+          <select id="cfg-model">
+            <option value="">-- 请先选择服务商 --</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label>自定义模型 ID <span class="hint">（可选，手动输入模型 ID）</span></label>
+          <div class="custom-model-input">
+            <input id="cfg-custom-model" type="text" placeholder="例如：gpt-4o-mini">
+            <button class="btn btn-sm" onclick="addCustomModel()">添加</button>
+          </div>
+          <div id="custom-model-tags" class="custom-model-tags"></div>
+        </div>
+
+        <div class="settings-test">
+          <button class="btn" onclick="testApiConfig()" id="test-api-btn">🔍 测试连接</button>
+          <span id="test-result" class="test-result"></span>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn" onclick="hideSettingsModal()">取消</button>
+        <button class="btn btn-primary" onclick="saveSettings()">保存配置</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Create Task Modal -->
+  <div class="modal-overlay" id="modal-overlay" onclick="hideCreateModal()">
+    <div class="modal" onclick="event.stopPropagation()">
+      <div class="modal-header">
+        <h2>新建采购任务</h2>
+        <button class="modal-close" onclick="hideCreateModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>任务名称</label>
+          <input id="f-name" type="text" placeholder="例如：找一台M4 MacBook Air">
+        </div>
+        <div class="form-group">
+          <label>搜索关键词 <span class="hint">（多个用逗号分隔）</span></label>
+          <input id="f-queries" type="text" placeholder="例如：MacBook Air M4, macbook air m4 13寸">
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>最低价</label>
+            <input id="f-price-min" type="number" placeholder="不限">
+          </div>
+          <div class="form-group">
+            <label>最高价</label>
+            <input id="f-price-max" type="number" placeholder="不限">
+          </div>
+          <div class="form-group">
+            <label>最大页数</label>
+            <input id="f-pages" type="number" value="3" min="1" max="20">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>地区 <span class="hint">（省份或城市名）</span></label>
+            <input id="f-region" type="text" placeholder="例如：四川、成都、广东 深圳">
+          </div>
+          <div class="form-group checkbox-group">
+            <label><input id="f-personal" type="checkbox"> 仅个人闲置</label>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>需求描述 <span class="hint">（用于AI筛选商品，自然语言描述你想买什么样的）</span></label>
+          <textarea id="f-requirements" rows="3" placeholder="例如：只要成色9新以上的，电池健康90%以上，价格4500以内优先，最好有原装配件和发票。不要华强北翻新机。"></textarea>
+        </div>
+        <div class="form-group">
+          <label>谈价策略 <span class="hint">（用于AI和卖家沟通时的策略指导）</span></label>
+          <textarea id="f-chat-strategy" rows="3" placeholder="例如：心理价位4200-4500，先夸商品再试探能不能少，如果卖家坚持不降就问能不能包邮。不要表现得太急切。"></textarea>
+        </div>
+
+        <!-- 高级设置折叠区 -->
+        <details class="advanced-section">
+          <summary class="advanced-toggle">高级设置 — Prompt 配置</summary>
+
+          <div class="form-group" style="margin-top:12px">
+            <label>粗筛 Prompt <span class="hint">（AI根据标题初筛商品时的指令）</span></label>
+            <textarea id="f-coarse-prompt" rows="4" class="persona-editor"></textarea>
+            <div class="persona-actions">
+              <button type="button" class="btn btn-sm" onclick="resetCoarsePrompt()">恢复默认</button>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>细筛 Prompt <span class="hint">（AI根据详情页深度筛选时的指令）</span></label>
+            <textarea id="f-fine-prompt" rows="4" class="persona-editor"></textarea>
+            <div class="persona-actions">
+              <button type="button" class="btn btn-sm" onclick="resetFinePrompt()">恢复默认</button>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>聊天人设 <span class="hint">（AI与卖家沟通时扮演的角色、语气、规则）</span></label>
+            <textarea id="f-persona" rows="10" class="persona-editor"></textarea>
+            <div class="persona-actions">
+              <button type="button" class="btn btn-sm" onclick="resetPersona()">恢复默认人设</button>
+              <span class="hint" id="persona-hint">留空则使用默认人设</span>
+            </div>
+          </div>
+        </details>
+      </div>
+      <div class="modal-footer">
+        <button class="btn" onclick="hideCreateModal()">取消</button>
+        <button class="btn btn-primary" onclick="createTask()">创建并启动</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Start Task Modal (edit persona & strategy before restart) -->
+  <div class="modal-overlay" id="start-modal-overlay" onclick="hideStartModal()">
+    <div class="modal" style="max-width:560px" onclick="event.stopPropagation()">
+      <div class="modal-header">
+        <h2>启动任务</h2>
+        <button class="modal-close" onclick="hideStartModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p class="hint" style="margin-bottom:12px" id="start-modal-task-name"></p>
+        <div class="form-group">
+          <label>谈价策略 <span class="hint">（可在启动前调整）</span></label>
+          <textarea id="s-chat-strategy" rows="3"></textarea>
+        </div>
+        <div class="form-group">
+          <label>聊天人设 <span class="hint">（可在启动前调整）</span></label>
+          <textarea id="s-persona" rows="6" class="persona-editor"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn" onclick="hideStartModal()">取消</button>
+        <button class="btn btn-primary" onclick="confirmStartTask()">确认启动</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js?v=8"></script>
+</body>
+</html>
